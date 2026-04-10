@@ -9,7 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
-import javax.validation.Valid;
+import jakarta.validation.Valid;
 import java.util.List;
 
 @RestController
@@ -60,11 +60,11 @@ public class ComponentController {
     }
 
     public static class SimulateRequest {
-        @javax.validation.constraints.NotBlank
+        @jakarta.validation.constraints.NotBlank
         public String name;
-        @javax.validation.constraints.NotBlank
+        @jakarta.validation.constraints.NotBlank
         public String description;
-        @javax.validation.constraints.NotNull
+        @jakarta.validation.constraints.NotNull
         public java.math.BigDecimal basePrice;
         public List<String> decoratorTypes;
     }
