@@ -7,6 +7,7 @@ import com.example.decoratorapi.component.mapper.ComponentMapper;
 import com.example.decoratorapi.component.model.BaseProductComponent;
 import com.example.decoratorapi.component.model.Component;
 import com.example.decoratorapi.component.factory.DecoratorFactory;
+import com.example.decoratorapi.decorator.model.DecoratorDefinition;
 import com.example.decoratorapi.shared.exception.InvalidDecoratorException;
 import com.example.decoratorapi.shared.exception.ResourceNotFoundException;
 import com.example.decoratorapi.store.InMemoryComponentStore;
@@ -49,10 +50,16 @@ public class ComponentService {
 
     public com.example.decoratorapi.component.dto.response.ComponentResponse applyDecorator(String componentId, ApplyDecoratorRequest request) {
         ComponentRecord record = componentStore.findById(componentId).orElseThrow(() -> new ResourceNotFoundException("Component not found with id: " + componentId));
-        if (!decoratorStore.exists(request.getDecoratorType())) throw new InvalidDecoratorException("Unknown decorator type: " + request.getDecoratorType());
+        String typeUpper = request.getDecoratorType().toUpperCase();
+        if (!decoratorStore.exists(typeUpper)) throw new InvalidDecoratorException("Unknown decorator type: " + request.getDecoratorType());
+        boolean alreadyApplied = record.getAppliedDecoratorTypes().contains(typeUpper);
+        boolean canRepeat = decoratorStore.findByType(typeUpper).map(DecoratorDefinition::isCanBeAppliedMultipleTimes).orElse(false);
+        if (alreadyApplied && !canRepeat) {
+            throw new InvalidDecoratorException("Decorator " + typeUpper + " is already applied to this component");
+        }
 
         Component rebuilt = rebuildChain(record);
-        Component decorated = decoratorFactory.apply(rebuilt, request.getDecoratorType());
+        Component decorated = decoratorFactory.apply(rebuilt, typeUpper);
         ComponentRecord updated = ComponentRecord.fromDomain(decorated);
         updated.setCreatedAt(record.getCreatedAt());
         componentStore.save(updated);
@@ -64,8 +71,7 @@ public class ComponentService {
         String typeUpper = decoratorType.toUpperCase();
         if (!record.getAppliedDecoratorTypes().contains(typeUpper)) throw new InvalidDecoratorException("Decorator " + typeUpper + " not found on component");
         List<String> remaining = new ArrayList<>(record.getAppliedDecoratorTypes());
-        remaining.remove(typeUpper);
-        // use the stored description when rebuilding after removal (was incorrectly using name)
+        remaining.removeAll(List.of(typeUpper));
         Component rebuilt = decoratorFactory.applyAll(new BaseProductComponent(record.getId(), record.getName(), record.getDescription(), record.getBasePrice()), remaining);
         ComponentRecord updated = ComponentRecord.fromDomain(rebuilt);
         updated.setCreatedAt(record.getCreatedAt());
@@ -84,7 +90,7 @@ public class ComponentService {
     }
 
     private Component rebuildChain(ComponentRecord record) {
-        Component base = new BaseProductComponent(record.getId(), record.getName(), record.getName(), record.getBasePrice());
+        Component base = new BaseProductComponent(record.getId(), record.getName(), record.getDescription(), record.getBasePrice());
         return decoratorFactory.applyAll(base, record.getAppliedDecoratorTypes());
     }
 }
