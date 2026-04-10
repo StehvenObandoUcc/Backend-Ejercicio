@@ -65,7 +65,8 @@ public class ComponentService {
         if (!record.getAppliedDecoratorTypes().contains(typeUpper)) throw new InvalidDecoratorException("Decorator " + typeUpper + " not found on component");
         List<String> remaining = new ArrayList<>(record.getAppliedDecoratorTypes());
         remaining.remove(typeUpper);
-        Component rebuilt = decoratorFactory.applyAll(new BaseProductComponent(record.getId(), record.getName(), record.getName(), record.getBasePrice()), remaining);
+        // use the stored description when rebuilding after removal (was incorrectly using name)
+        Component rebuilt = decoratorFactory.applyAll(new BaseProductComponent(record.getId(), record.getName(), record.getDescription(), record.getBasePrice()), remaining);
         ComponentRecord updated = ComponentRecord.fromDomain(rebuilt);
         updated.setCreatedAt(record.getCreatedAt());
         componentStore.save(updated);
