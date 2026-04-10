@@ -71,7 +71,7 @@ public class ComponentController {
 
     @Operation(summary = "Simulate composition without saving")
     @PostMapping("/simulate")
-    public ResponseEntity<ApiResponse<com.example.decoratorapi.component.dto.response.ComponentResponse>> simulateComposition(@RequestBody SimulateRequest body) {
+    public ResponseEntity<ApiResponse<com.example.decoratorapi.component.dto.response.ComponentResponse>> simulateComposition(@Valid @RequestBody SimulateRequest body) {
         CreateComponentRequest req = new CreateComponentRequest();
         req.setName(body.name);
         req.setDescription(body.description);
