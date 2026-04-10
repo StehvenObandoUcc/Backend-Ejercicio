@@ -9,5 +9,6 @@ RUN ./mvnw clean package -DskipTests -B
 FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
 COPY --from=build /app/target/decorator-api-0.0.1-SNAPSHOT.jar app.jar
-EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENV PORT=8080
+EXPOSE ${PORT}
+ENTRYPOINT ["sh", "-c", "java -Xmx256m -Xms128m -Dserver.port=${PORT} -jar app.jar"]
