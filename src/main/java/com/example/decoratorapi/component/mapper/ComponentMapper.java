@@ -32,11 +32,15 @@ public class ComponentMapper {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         PriceBreakdownResponse breakdown = new PriceBreakdownResponse(record.getBasePrice(), costs, totalAdded, record.getFinalPrice());
+        String description = record.getDescription();
+        if (description != null && !description.startsWith("Base: ")) {
+            description = "Base: " + description;
+        }
 
         return ComponentResponse.builder()
                 .id(record.getId())
                 .name(record.getName())
-                .description(record.getDescription())
+                .description(description)
                 .basePrice(record.getBasePrice())
                 .finalPrice(record.getFinalPrice())
                 .appliedDecoratorTypes(record.getAppliedDecoratorTypes())
