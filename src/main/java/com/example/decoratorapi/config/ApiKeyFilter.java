@@ -25,6 +25,12 @@ public class ApiKeyFilter implements Filter {
         HttpServletRequest httpRequest = (HttpServletRequest) request;
         HttpServletResponse httpResponse = (HttpServletResponse) response;
 
+        // Allow CORS preflight requests through without API key
+        if ("OPTIONS".equalsIgnoreCase(httpRequest.getMethod())) {
+            chain.doFilter(request, response);
+            return;
+        }
+
         // Allow unauthenticated access to OpenAPI / Swagger UI resources
         String path = httpRequest.getRequestURI();
         if (path.startsWith("/swagger-ui") || path.startsWith("/api-docs") || path.startsWith("/v3/api-docs") || path.startsWith("/swagger-resources")) {
