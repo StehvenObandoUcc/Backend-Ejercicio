@@ -2,11 +2,10 @@ package com.example.decoratorapi.component.factory;
 
 import com.example.decoratorapi.component.model.*;
 import com.example.decoratorapi.shared.exception.InvalidDecoratorException;
-import org.springframework.stereotype.Component;
 
 import java.util.List;
 
-@Component
+@org.springframework.stereotype.Component
 public class DecoratorFactory {
 
     public Component apply(Component base, String type) {
