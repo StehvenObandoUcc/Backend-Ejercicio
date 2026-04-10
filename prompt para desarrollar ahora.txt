@@ -1,0 +1,202 @@
+Eres experto en Java 17 y Spring Boot 3.3.x.
+Crea el módulo de DTOs, SERVICIO Y CONTROLLER del proyecto "Decorator Pattern API".
+Trabaja completamente independiente, no esperes a nadie.
+
+REGLAS:
+- Inglés: clases PascalCase, métodos camelCase, paquetes minúsculas
+- Solo constructor injection, cero @Autowired en campos
+- CERO lógica en el controller, todo va en el service
+- El controller NUNCA tiene try/catch
+- BigDecimal para precios, NUNCA double ni float
+
+CONTEXTO: Estas clases las crean otras personas. Créalas como STUBS
+solo para compilar. En el merge final se reemplazan por las reales:
+────────────────────────────────────────────────────────
+// STUBS - reemplazar en merge
+package com.example.decoratorapi.shared;
+public class ApiResponse<T> {
+  public boolean success; public String message; public T data;
+  public ApiResponse(boolean s, String m, T d){this.success=s;this.message=m;this.data=d;}
+  public static <T> ApiResponse<T> ok(T data){ return new ApiResponse<>(true,"OK",data); }
+  public static <T> ApiResponse<T> ok(String msg, T data){ return new ApiResponse<>(true,msg,data); }
+}
+
+package com.example.decoratorapi.shared.exception;
+public class ResourceNotFoundException extends RuntimeException { public ResourceNotFoundException(String m){super(m);} }
+public class InvalidDecoratorException extends RuntimeException { public InvalidDecoratorException(String m){super(m);} }
+
+package com.example.decoratorapi.component.model;
+public interface Component {
+  String getId(); String getName(); String getDescription();
+  java.math.BigDecimal getBasePrice(); java.math.BigDecimal getFinalPrice();
+  java.util.List<String> getAppliedDecoratorTypes();
+}
+public class BaseProductComponent implements Component {
+  private String id, name, description; private java.math.BigDecimal basePrice;
+  public BaseProductComponent(String id,String name,String desc,java.math.BigDecimal price){
+    this.id=id;this.name=name;this.description=desc;this.basePrice=price;
+  }
+  public String getId(){return id;} public String getName(){return name;}
+  public String getDescription(){return "Base: "+description;}
+  public java.math.BigDecimal getBasePrice(){return basePrice;}
+  public java.math.BigDecimal getFinalPrice(){return basePrice;}
+  public java.util.List<String> getAppliedDecoratorTypes(){return new java.util.ArrayList<>();}
+}
+
+package com.example.decoratorapi.component.factory;
+@org.springframework.stereotype.Component
+public class DecoratorFactory {
+  public Component apply(Component base, String type){ return base; }
+  public Component applyAll(Component base, java.util.List<String> types){ return base; }
+}
+
+package com.example.decoratorapi.store;
+@org.springframework.stereotype.Component
+public class InMemoryComponentStore { /* stub */ }
+
+package com.example.decoratorapi.store;
+@org.springframework.stereotype.Component
+public class InMemoryDecoratorStore {
+  public java.util.Optional<com.example.decoratorapi.decorator.model.DecoratorDefinition> findByType(String t){ return java.util.Optional.empty(); }
+  public boolean exists(String t){ return false; }
+}
+
+package com.example.decoratorapi.decorator.model;
+@lombok.Data @lombok.AllArgsConstructor @lombok.Builder
+public class DecoratorDefinition {
+  private String type, displayName, description;
+  private java.math.BigDecimal additionalCost;
+  private boolean canBeAppliedMultipleTimes;
+}
+────────────────────────────────────────────────────────
+
+═══════════════════════════════════════
+ARCHIVOS REALES QUE DEBES CREAR
+═══════════════════════════════════════
+
+── com.example.decoratorapi.component.dto.request.CreateComponentRequest
+  @Data
+  @NotBlank(message="name is required") @Size(max=100) String name
+  @NotBlank(message="description is required") String description
+  @NotNull(message="basePrice is required") @DecimalMin("0.01") BigDecimal basePrice
+
+── com.example.decoratorapi.component.dto.request.ApplyDecoratorRequest
+  @Data
+  @NotBlank(message="decoratorType is required") String decoratorType
+
+── com.example.decoratorapi.component.dto.response.PriceBreakdownResponse
+  @Data @AllArgsConstructor @Builder
+  campos: BigDecimal basePrice, List<DecoratorCostItem> decoratorCosts, BigDecimal totalAdded, BigDecimal finalPrice
+  inner class estática @Data @AllArgsConstructor:
+    class DecoratorCostItem { String decoratorType; BigDecimal cost; }
+
+── com.example.decoratorapi.component.dto.response.ComponentResponse
+  @Data @AllArgsConstructor @Builder
+  campos: String id, name, description; BigDecimal basePrice, finalPrice;
+          List<String> appliedDecoratorTypes; PriceBreakdownResponse priceBreakdown;
+          String createdAt, updatedAt
+
+── com.example.decoratorapi.component.record.ComponentRecord
+  @Data @AllArgsConstructor @Builder
+  campos: String id, name, description; BigDecimal basePrice, finalPrice;
+          List<String> appliedDecoratorTypes; String createdAt, updatedAt
+  método estático fromDomain(Component c):
+    String now = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+    return ComponentRecord.builder()
+      .id(c.getId()).name(c.getName()).description(c.getDescription())
+      .basePrice(c.getBasePrice()).finalPrice(c.getFinalPrice())
+      .appliedDecoratorTypes(new ArrayList<>(c.getAppliedDecoratorTypes()))
+      .createdAt(now).updatedAt(now).build();
+
+── com.example.decoratorapi.component.mapper.ComponentMapper  @Component
+  constructor inyecta InMemoryDecoratorStore
+  toResponse(ComponentRecord record):
+    - Itera record.getAppliedDecoratorTypes()
+    - Por cada tipo: decoratorStore.findByType(tipo).map(DecoratorDefinition::getAdditionalCost).orElse(BigDecimal.ZERO)
+    - Crea DecoratorCostItem(tipo, costo) por cada uno
+    - totalAdded = lista.stream().map(DecoratorCostItem::getCost).reduce(BigDecimal.ZERO, BigDecimal::add)
+    - Construye PriceBreakdownResponse(record.getBasePrice(), lista, totalAdded, record.getFinalPrice())
+    - Retorna ComponentResponse con todos los campos del record + priceBreakdown
+  toResponseList(List<ComponentRecord> records) → records.stream().map(this::toResponse).toList()
+
+── com.example.decoratorapi.component.service.ComponentService  @Service
+  constructor inyecta: InMemoryComponentStore, InMemoryDecoratorStore, DecoratorFactory, ComponentMapper
+
+  createComponent(CreateComponentRequest req):
+    Component base = new BaseProductComponent(UUID.randomUUID().toString(), req.getName(), req.getDescription(), req.getBasePrice());
+    return componentMapper.toResponse(componentStore.save(ComponentRecord.fromDomain(base)));
+
+  getComponent(String id):
+    ComponentRecord r = componentStore.findById(id).orElseThrow(() -> new ResourceNotFoundException("Component not found with id: " + id));
+    return componentMapper.toResponse(r);
+
+  getAllComponents():
+    return componentMapper.toResponseList(componentStore.findAll());
+
+  applyDecorator(String componentId, ApplyDecoratorRequest req):
+    1. Busca record → lanza 404 si no existe
+    2. Si !decoratorStore.exists(req.getDecoratorType()) → throw new InvalidDecoratorException("Unknown decorator type: " + req.getDecoratorType())
+    3. Component decorated = decoratorFactory.apply(rebuildChain(record), req.getDecoratorType())
+    4. ComponentRecord updated = ComponentRecord.fromDomain(decorated); updated.setCreatedAt(record.getCreatedAt());
+    5. return componentMapper.toResponse(componentStore.save(updated));
+
+  removeDecorator(String componentId, String decoratorType):
+    1. Busca record → lanza 404 si no existe
+    2. String typeUpper = decoratorType.toUpperCase();
+       Si !record.getAppliedDecoratorTypes().contains(typeUpper) → throw new InvalidDecoratorException("Decorator " + typeUpper + " not found on component")
+    3. List<String> remaining = new ArrayList<>(record.getAppliedDecoratorTypes()); remaining.remove(typeUpper);
+    4. Component rebuilt = decoratorFactory.applyAll(new BaseProductComponent(record.getId(), record.getName(), record.getName(), record.getBasePrice()), remaining);
+    5. ComponentRecord updated = ComponentRecord.fromDomain(rebuilt); updated.setCreatedAt(record.getCreatedAt());
+    6. return componentMapper.toResponse(componentStore.save(updated));
+
+  deleteComponent(String id): componentStore.deleteById(id);
+
+  simulateComposition(CreateComponentRequest req, List<String> types):
+    Component base = new BaseProductComponent(UUID.randomUUID().toString(), req.getName(), req.getDescription(), req.getBasePrice());
+    Component composed = decoratorFactory.applyAll(base, types);
+    return componentMapper.toResponse(ComponentRecord.fromDomain(composed));
+    // NO guardar en el store
+
+  MÉTODO PRIVADO rebuildChain(ComponentRecord record):
+    Component base = new BaseProductComponent(record.getId(), record.getName(), record.getName(), record.getBasePrice());
+    return decoratorFactory.applyAll(base, record.getAppliedDecoratorTypes());
+
+── com.example.decoratorapi.component.controller.ComponentController
+  @RestController @RequestMapping("/api/v1/components")
+  constructor inyecta ComponentService
+  CERO try/catch. CERO lógica. Solo delegar al service.
+
+  POST   /api/v1/components
+    @Operation(summary="Create a new base component")
+    return ResponseEntity.status(201).body(ApiResponse.ok("Component created", service.createComponent(request)));
+
+  GET    /api/v1/components
+    @Operation(summary="List all components")
+    return ResponseEntity.ok(ApiResponse.ok("Components retrieved", service.getAllComponents()));
+
+  GET    /api/v1/components/{id}
+    @Operation(summary="Get component by ID")
+    return ResponseEntity.ok(ApiResponse.ok("Component retrieved", service.getComponent(id)));
+
+  POST   /api/v1/components/{id}/decorators
+    @Operation(summary="Apply decorator to component")
+    return ResponseEntity.ok(ApiResponse.ok("Decorator applied", service.applyDecorator(id, request)));
+
+  DELETE /api/v1/components/{id}/decorators/{decoratorType}
+    @Operation(summary="Remove decorator from component")
+    return ResponseEntity.ok(ApiResponse.ok("Decorator removed", service.removeDecorator(id, decoratorType)));
+
+  DELETE /api/v1/components/{id}
+    @Operation(summary="Delete component")
+    service.deleteComponent(id);
+    return ResponseEntity.ok(ApiResponse.ok("Component deleted", null));
+
+  POST   /api/v1/components/simulate
+    @Operation(summary="Simulate composition without saving")
+    Crea inner static class SimulateRequest { @NotBlank String name; @NotBlank String description; @NotNull BigDecimal basePrice; List<String> decoratorTypes; }
+    CreateComponentRequest req = new CreateComponentRequest(); copia name, description, basePrice del body.
+    return ResponseEntity.ok(ApiResponse.ok("Simulation result", service.simulateComposition(req, body.getDecoratorTypes())));
+
+═══════════════════════════════════════
+TU ENTREGA: todos los archivos reales + los stubs marcados.
+En el merge final: elimina los stubs y usa las clases de los otros.
