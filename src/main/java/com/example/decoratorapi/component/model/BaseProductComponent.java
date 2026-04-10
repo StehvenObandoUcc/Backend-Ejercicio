@@ -1,5 +1,6 @@
 package com.example.decoratorapi.component.model;
 
+import lombok.AccessLevel;
 import lombok.Getter;
 
 import java.math.BigDecimal;
@@ -10,6 +11,7 @@ import java.util.List;
 public class BaseProductComponent implements Component {
     private final String id;
     private final String name;
+    @Getter(AccessLevel.NONE)
     private final String description;
     private final BigDecimal basePrice;
 
@@ -22,7 +24,7 @@ public class BaseProductComponent implements Component {
 
     @Override
     public String getDescription() {
-        return "Base: " + this.description;
+        return this.description;
     }
 
     @Override
