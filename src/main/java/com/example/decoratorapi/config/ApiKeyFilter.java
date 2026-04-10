@@ -25,6 +25,13 @@ public class ApiKeyFilter implements Filter {
         HttpServletRequest httpRequest = (HttpServletRequest) request;
         HttpServletResponse httpResponse = (HttpServletResponse) response;
 
+        // Allow unauthenticated access to OpenAPI / Swagger UI resources
+        String path = httpRequest.getRequestURI();
+        if (path.startsWith("/swagger-ui") || path.startsWith("/api-docs") || path.startsWith("/v3/api-docs") || path.startsWith("/swagger-resources")) {
+            chain.doFilter(request, response);
+            return;
+        }
+
         String incoming = httpRequest.getHeader("X-API-KEY");
         if (incoming == null || !incoming.equals(apiKey)) {
             httpResponse.setStatus(HttpServletResponse.SC_FORBIDDEN);
