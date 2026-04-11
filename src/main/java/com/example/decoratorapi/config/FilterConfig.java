@@ -8,7 +8,7 @@ import org.springframework.context.annotation.Configuration;
 public class FilterConfig {
 
     @Bean
-    public FilterRegistrationBean<ApiKeyFilter> apiKeyFilter(ApiKeyFilter apiKeyFilter) {
+    public FilterRegistrationBean<ApiKeyFilter> apiKeyFilterRegistration(ApiKeyFilter apiKeyFilter) {
         FilterRegistrationBean<ApiKeyFilter> registration = new FilterRegistrationBean<>();
         registration.setFilter(apiKeyFilter);
         registration.addUrlPatterns("/*");
